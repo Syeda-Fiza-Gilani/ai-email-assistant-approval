@@ -1,0 +1,258 @@
+{
+  "name": "AI Email Assistant with Human-in-the-Loop Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "id": "2b3c4d5e-0001-4000-8000-000000000001",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "operation": "markdown",
+        "html": "={{ $json.textHtml || $json.text }}"
+      },
+      "id": "2b3c4d5e-0002-4000-8000-000000000002",
+      "name": "Markdown",
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-pro",
+        "options": {}
+      },
+      "id": "2b3c4d5e-0003-4000-8000-000000000003",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [540, 520]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "2b3c4d5e-0004-4000-8000-000000000004",
+      "name": "Email Summarization...",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-pro",
+        "options": {}
+      },
+      "id": "2b3c4d5e-0005-4000-8000-000000000005",
+      "name": "Google Gemini Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [800, 520]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are an executive assistant drafting a professional email response based on the summarized context."
+        }
+      },
+      "id": "2b3c4d5e-0006-4000-8000-000000000006",
+      "name": "Write email",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "set-draft-body",
+              "name": "emailDraft",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "set-recipient",
+              "name": "recipientEmail",
+              "value": "={{ $node['Gmail Trigger'].json.from }}",
+              "type": "string"
+            },
+            {
+              "id": "set-subject",
+              "name": "emailSubject",
+              "value": "=Re: {{ $node['Gmail Trigger'].json.subject }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2b3c4d5e-0007-4000-8000-000000000007",
+      "name": "Set Email text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1020, 300]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "options": {}
+      },
+      "id": "2b3c4d5e-0008-4000-8000-000000000008",
+      "name": "Approve Email",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1240, 300],
+      "webhookId": "approval-wait-step"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.body.approved }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "2b3c4d5e-0009-4000-8000-000000000009",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1460, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $node['Set Email text'].json.recipientEmail }}",
+        "subject": "={{ $node['Set Email text'].json.emailSubject }}",
+        "message": "={{ $node['Set Email text'].json.emailDraft }}"
+      },
+      "id": "2b3c4d5e-0010-4000-8000-000000000010",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1680, 240]
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown": {
+      "main": [
+        [
+          {
+            "node": "Email Summarization...",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Email Summarization...",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Summarization...": {
+      "main": [
+        [
+          {
+            "node": "Write email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write email": {
+      "main": [
+        [
+          {
+            "node": "Set Email text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Email text": {
+      "main": [
+        [
+          {
+            "node": "Approve Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Email": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
