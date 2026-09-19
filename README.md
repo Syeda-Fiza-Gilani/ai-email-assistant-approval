@@ -35,4 +35,4 @@ An enterprise-grade **n8n workflow** that automatically processes incoming email
 
 1. Clone this repository:
    ```bash
-   git clone [https://github.com/your-username/ai-email-assistant-approval.git](https://github.com/your-username/ai-email-assistant-approval.git)
+   git clone https://github.com/Syeda-Fiza-Gilani/ai-email-assistant-approval.git
